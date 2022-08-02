@@ -56,18 +56,14 @@ def authenticate_with_google():
     credentials = SignedJwtAssertionCredentials(
         GOOGLE_API_CONFIG['CLIENT_EMAIL'], GOOGLE_API_CONFIG['PRIVATE_KEY'], GOOGLE_API_CONFIG['SCOPE']
     )
-    google_api_conn = gspread.authorize(credentials)
-    
-    return google_api_conn
+    return gspread.authorize(credentials)
     
 def open_google_spreadsheet():
     '''
     Authenticate and return spreadsheet by `GOOGLE_SPREADSHEET_KEY`.
     '''
     google_api_conn = authenticate_with_google()
-    spreadsheet = google_api_conn.open_by_key(GOOGLE_SPREADSHEET_KEY)
-    
-    return spreadsheet
+    return google_api_conn.open_by_key(GOOGLE_SPREADSHEET_KEY)
 
 def fetch_data(multiple_sheets=False, worksheets_to_skip=[]):
     spreadsheet = open_google_spreadsheet()
@@ -158,13 +154,13 @@ def commit_json(data, target_config=GITHUB_CONFIG, commit=COMMIT_JSON_TO_GITHUB)
     If `COMMIT_JSON_TO_GITHUB` is False, this will operate in "dry run" mode,
     authenticating against GitHub but not changing any files.
     '''
-    
+
     # authenticate with GitHub
     gh = github3.login(token=target_config['TOKEN'])
-    
+
     # get the right repo
     repo = gh.repository(target_config['REPO_OWNER'], target_config['REPO_NAME'])
-    
+
     for branch in target_config['TARGET_BRANCHES']:
         # check to see whether data file exists
         contents = repo.contents(
@@ -182,19 +178,17 @@ def commit_json(data, target_config=GITHUB_CONFIG, commit=COMMIT_JSON_TO_GITHUB)
                     branch=branch
                 )
                 logger.info('Created new data file in repo')
+            elif data.decode('utf-8') == contents.decoded.decode('utf-8'):
+                logger.info('Data has not changed, no commit created')
             else:
-                # if data has changed, update existing file
-                if data.decode('utf-8') == contents.decoded.decode('utf-8'):
-                    logger.info('Data has not changed, no commit created')
-                else:
-                    repo.update_file(
-                        path=target_config['TARGET_FILE'],
-                        message='updating schedule data',
-                        content=data,
-                        sha=contents.sha,
-                        branch=branch
-                    )
-                    logger.info('Data updated, new commit to repo')
+                repo.update_file(
+                    path=target_config['TARGET_FILE'],
+                    message='updating schedule data',
+                    content=data,
+                    sha=contents.sha,
+                    branch=branch
+                )
+                logger.info('Data updated, new commit to repo')
                 
 
 def update_data():
